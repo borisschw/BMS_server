@@ -23,6 +23,18 @@ public:
     uint32_t get_bat_voltage();
     uint32_t get_balancer_temp();
 
+
+
+    enum eBalancerFaults
+    {
+        e_OK = 0,
+        e_DOCKED_FAULT,
+        e_CHARGER_EN_FAULT,
+        e_SYSFAULT1_TWARN_FAULT,
+        e_DIE_TEMP_HIGH_FAULT,
+        e_BATTERY_CURRENT_FAULT
+    } ;
+
     enum eFrameType
     {
         e_ACK_FRAME = 0,
@@ -48,6 +60,7 @@ public:
         uint32_t max_cell;
         uint32_t min_cell;
         uint32_t voltage_delta;
+        eBalancerFaults fault;
 
     };
 

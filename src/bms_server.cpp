@@ -33,10 +33,8 @@ void BmsServer:: send_ack(eAckValue val)
             printf("%x ", buf_to_send[i]);
 
     tcflush(fd, TCIOFLUSH);
-    wlen = write(fd, buf_to_send, 4);
-    ch = '\n';
-    write(fd, &ch, 1);
-    if (wlen != 4) {
+    wlen = write(fd, buf_to_send, sizeof(buf_to_send));
+    if (wlen != sizeof(buf_to_send)) {
         printf("Error from write: %d, %d\n", wlen, errno);
     }
     tcdrain(fd);    /* delay for output */
@@ -68,9 +66,10 @@ void BmsServer:: get_data_frame(uint8_t *buf, bms_frame_struct *bms_frame)
     printf("max_cell        =  %d \n",bms_status.max_cell);
     printf("min_cell        =  %d \n",bms_status.min_cell);
     printf("voltage_delta   =  %d \n",bms_status.voltage_delta);
+    printf("fault           =  %d \n",bms_status.fault);
     printf("\n");
 
-  //  send_ack(e_ACK_VALUE);
+    send_ack(e_ACK_VALUE);
     tcflush(fd, TCIOFLUSH);
 
 }
