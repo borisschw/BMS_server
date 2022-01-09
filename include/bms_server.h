@@ -31,6 +31,12 @@ public:
         e_FAULT_FRAME
     };
 
+    enum eAckValue
+    {
+        e_ACK_VALUE  = 0x10,
+        e_NACK_VALUE = 0x01
+    };
+
 
     struct bms_status_struct {
         uint32_t bms_state;
@@ -59,11 +65,11 @@ public:
 
     int fd;
     int set_interface_attribs(int fd, int speed);
-
+    void get_data_frame(uint8_t *buf, bms_frame_struct *bms_frame);
+    void send_ack(eAckValue val);
     bms_status_struct bms_status;
     const char *portname = "/dev/ttyUSB2";
     const uint32_t header = 0xa5a5;
-
 
 };
 

@@ -6,17 +6,95 @@
 
 using namespace std;
 
+
+
+
+void BmsServer:: send_ack(eAckValue val)
+{
+    uint32_t buf_to_send[4];
+    uint32_t ack_value;
+    int wlen = 0;
+    char ch;
+
+    if (val == e_ACK_VALUE)
+        ack_value = e_ACK_VALUE;
+    else
+        ack_value = e_NACK_VALUE;
+
+    buf_to_send[0] = header;
+    buf_to_send[1] = e_ACK_FRAME;
+    buf_to_send[2] = sizeof(uint32_t);
+    buf_to_send[3] = ack_value;
+
+    cout <<"\n"<< "Send ACK To BMS" << "\n";
+
+
+    for (unsigned int i = 0 ; i < 4 ; i++)
+            printf("%x ", buf_to_send[i]);
+
+    tcflush(fd, TCIOFLUSH);
+    wlen = write(fd, buf_to_send, 4);
+    ch = '\n';
+    write(fd, &ch, 1);
+    if (wlen != 4) {
+        printf("Error from write: %d, %d\n", wlen, errno);
+    }
+    tcdrain(fd);    /* delay for output */
+
+    /*
+    // memcpy((void *) buf_to_send, &bms_frame, \
+    // sizeof(bms_frame_struct) - sizeof(uint32_t));
+
+    // memcpy((void *) buf_to_send +, &bms_frame, \
+    // sizeof(bms_frame_struct) - sizeof(uint32_t));
+*/
+
+}
+
+
+void BmsServer:: get_data_frame(uint8_t *buf, bms_frame_struct *bms_frame)
+{
+    memcpy((void *)&bms_status, buf + (sizeof(uint32_t) * 3), bms_frame->length);
+    bms_frame->data = (uint32_t *)&bms_status;
+
+    tcflush(fd, TCIOFLUSH);
+
+    printf("bms_state       =  %d \n",bms_status.bms_state);
+    printf("bat_voltage     =  %d \n",bms_status.bat_voltage);
+    printf("bat_percent     =  %d \n",bms_status.bat_percent);
+    printf("balancer_temp   =  %d \n",bms_status.balancer_temp);
+    printf("state_of_health =  %d \n",bms_status.state_of_health);
+    printf("state_of_charge =  %d \n",bms_status.state_of_charge);
+    printf("max_cell        =  %d \n",bms_status.max_cell);
+    printf("min_cell        =  %d \n",bms_status.min_cell);
+    printf("voltage_delta   =  %d \n",bms_status.voltage_delta);
+    printf("\n");
+
+  //  send_ack(e_ACK_VALUE);
+    tcflush(fd, TCIOFLUSH);
+
+}
+
+
 void BmsServer:: read_bms_frame(uint32_t *frame)
 {
-    uint8_t buf[160];
+    uint8_t buf[80];
     bms_frame_struct bms_frame;
     int rdlen;
+
+    tcflush(fd, TCIOFLUSH);
 
     rdlen = read(fd, buf, sizeof(bms_status_struct) + \
                           sizeof(bms_frame_struct) - \
                           sizeof(uint32_t));
-    // for (int i = 0 ; i<rdlen ; i++)
-    //         printf("%x ", buf[i]);
+
+    cout<<"\n"<< "read income frame" << "\n";
+    for (int i = 0 ; i<rdlen ; i++)
+    {
+        printf("%x ", buf[i]);
+    }
+    printf("\n\n");
+
     if (rdlen > 0) {
         memcpy(&bms_frame.header,(void *) buf, sizeof(uint32_t));
 
@@ -24,24 +102,24 @@ void BmsServer:: read_bms_frame(uint32_t *frame)
         {
             memcpy(&bms_frame.type,(void *) (buf + (sizeof(uint32_t))), sizeof(uint32_t));
             memcpy(&bms_frame.length,(void *) (buf + (sizeof(uint32_t) * 2)), sizeof(uint32_t));
+            bms_frame.data = (uint32_t *) malloc(bms_frame.length/sizeof(uint32_t));
 
-            bms_frame.data = (uint32_t *) malloc(sizeof(bms_status_struct)/sizeof(uint32_t));
-
-            memcpy((void *)&bms_status, buf + (sizeof(uint32_t) * 3), bms_frame.length);
-
-            bms_frame.data = (uint32_t *)&bms_status;
-
-            printf("bms_state       =  %d \n",bms_status.bms_state);
-            printf("bat_voltage     =  %d \n",bms_status.bat_voltage);
-            printf("bat_percent     =  %d \n",bms_status.bat_percent);
-            printf("balancer_temp   =  %d \n",bms_status.balancer_temp);
-            printf("state_of_health =  %d \n",bms_status.state_of_health);
-            printf("state_of_charge =  %d \n",bms_status.state_of_charge);
-            printf("max_cell        =  %d \n",bms_status.max_cell);
-            printf("min_cell        =  %d \n",bms_status.min_cell);
-            printf("voltage_delta   =  %d \n",bms_status.voltage_delta);
-            printf("\n");
-
+            switch (bms_frame.type)
+            {
+                case e_ACK_FRAME:
+                    cout<<"------>>>>>>>> Got ACK frame"<<"\n";
+                break;
+                case e_DATA_FRAME:
+                    cout<<"Got data frame"<<"\n";
+                    get_data_frame(buf, &bms_frame);
+                break;
+                case e_CONTROL_FRAME:
+                break;
+                case e_FAULT_FRAME:
+                break;
+                default:
+                break;
+            }
         }
 
 
@@ -114,6 +192,7 @@ int main(int argc, char** argv)
 {
 
     BmsServer *bms = new BmsServer;
+
     uint32_t num = 0;
 
     while(1)
