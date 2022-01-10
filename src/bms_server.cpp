@@ -50,7 +50,7 @@ void BmsServer:: send_ack(eAckValue val)
 }
 
 
-void BmsServer:: get_data_frame(uint8_t *buf, bms_frame_struct *bms_frame)
+int BmsServer:: get_data_frame(uint8_t *buf, bms_frame_struct *bms_frame)
 {
     memcpy((void *)&bms_status, buf + (sizeof(uint32_t) * 3), bms_frame->length);
     bms_frame->data = (uint32_t *)&bms_status;
@@ -69,9 +69,10 @@ void BmsServer:: get_data_frame(uint8_t *buf, bms_frame_struct *bms_frame)
     printf("fault           =  %d \n",bms_status.fault);
     printf("\n");
 
-    send_ack(e_ACK_VALUE);
-    tcflush(fd, TCIOFLUSH);
+    /*Check Frame fields: TBD */
+    /*If there is something wrong return -1*/
 
+    return 0;
 }
 
 
@@ -101,7 +102,9 @@ void BmsServer:: read_bms_frame(uint32_t *frame)
         {
             memcpy(&bms_frame.type,(void *) (buf + (sizeof(uint32_t))), sizeof(uint32_t));
             memcpy(&bms_frame.length,(void *) (buf + (sizeof(uint32_t) * 2)), sizeof(uint32_t));
-            bms_frame.data = (uint32_t *) malloc(bms_frame.length/sizeof(uint32_t));
+
+            if(bms_frame.length <=(sizeof(uint32_t) * 15 ))
+                bms_frame.data = (uint32_t *) malloc(bms_frame.length/sizeof(uint32_t));
 
             switch (bms_frame.type)
             {
@@ -110,11 +113,19 @@ void BmsServer:: read_bms_frame(uint32_t *frame)
                 break;
                 case e_DATA_FRAME:
                     cout<<"Got data frame"<<"\n";
-                    get_data_frame(buf, &bms_frame);
+
+                    if (get_data_frame(buf, &bms_frame) == 0 )
+                        send_ack(e_ACK_VALUE);
+                    else
+                        send_ack(e_NACK_VALUE);
+
+                    tcflush(fd, TCIOFLUSH);
                 break;
                 case e_CONTROL_FRAME:
+                    cout<<"------>>>>>>>> Got CONTROL frame"<<"\n";
                 break;
                 case e_FAULT_FRAME:
+                     cout<<"------>>>>>>>> Got Fault frame"<<"\n";
                 break;
                 default:
                 break;
@@ -123,6 +134,7 @@ void BmsServer:: read_bms_frame(uint32_t *frame)
 
 
     } else if (rdlen < 0) {
+        sleep(1);
         cout<< "Error from read:" << rdlen << ":" << strerror(errno)<< "\n";
     } else {  /* rdlen == 0 */
         cout<< "Timeout from read" << "\n";
@@ -198,6 +210,9 @@ int main(int argc, char** argv)
     {
 
         bms->read_bms_frame(&num);
+
+
+
     }
 
     delete bms;

@@ -23,8 +23,6 @@ public:
     uint32_t get_bat_voltage();
     uint32_t get_balancer_temp();
 
-
-
     enum eBalancerFaults
     {
         e_OK = 0,
@@ -64,6 +62,16 @@ public:
 
     };
 
+    enum eBalancerCommands
+    {
+        e_STOP_BALANCING = 0x10,
+        e_START_BALANCING = 0x11,
+        e_STOP_CHARGING = 0x12,
+        e_START_CHARGING = 0x13,
+        e_TURN_OFF_TEGRA = 0x14,
+        e_TURN_ON_TEGRA = 0x15,
+    };
+
 
     struct bms_frame_struct{
         uint32_t header;
@@ -78,11 +86,15 @@ public:
 
     int fd;
     int set_interface_attribs(int fd, int speed);
-    void get_data_frame(uint8_t *buf, bms_frame_struct *bms_frame);
+    int get_data_frame(uint8_t *buf, bms_frame_struct *bms_frame);
     void send_ack(eAckValue val);
+
+    void send_control_frame(eAckValue val);
+
     bms_status_struct bms_status;
-    const char *portname = "/dev/ttyUSB2";
+    const char *portname = "/dev/ttyUSB0";
     const uint32_t header = 0xa5a5;
+
 
 };
 
