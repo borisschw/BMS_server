@@ -49,6 +49,13 @@ public:
 
 
     struct bms_status_struct {
+
+        uint32_t dev_name;
+        uint32_t vcell_voltage;
+        uint32_t rep_cap;
+        uint32_t rep_soc;
+        uint32_t fule_gauge_temp;
+        uint32_t average_current;
         uint32_t bms_state;
         uint32_t bat_voltage;
         uint32_t bat_percent;
@@ -69,7 +76,7 @@ public:
         e_STOP_CHARGING = 0x12,
         e_START_CHARGING = 0x13,
         e_TURN_OFF_TEGRA = 0x14,
-        e_TURN_ON_TEGRA = 0x15,
+        e_TURN_ON_TEGRA = 0x15
     };
 
 
@@ -80,13 +87,19 @@ public:
         uint32_t* data;
     };
 
-    void read_bms_frame(uint32_t *frame);
+
+
+
+
+
+    void get_bms_frame(uint32_t *frame);
+    void send_bms_cmd_frame(eBalancerCommands command);
 
     private:
 
     int fd;
     int set_interface_attribs(int fd, int speed);
-    int get_data_frame(uint8_t *buf, bms_frame_struct *bms_frame);
+    int get_data_frame();
     void send_ack(eAckValue val);
 
     void send_control_frame(eAckValue val);
@@ -94,7 +107,7 @@ public:
     bms_status_struct bms_status;
     const char *portname = "/dev/ttyUSB0";
     const uint32_t header = 0xa5a5;
-
+    const uint32_t max_frame_len = 50;
 
 };
 

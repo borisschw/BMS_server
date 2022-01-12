@@ -9,12 +9,12 @@ using namespace std;
 
 
 
+
 void BmsServer:: send_ack(eAckValue val)
 {
     uint32_t buf_to_send[4];
     uint32_t ack_value;
     int wlen = 0;
-    char ch;
 
     if (val == e_ACK_VALUE)
         ack_value = e_ACK_VALUE;
@@ -38,6 +38,7 @@ void BmsServer:: send_ack(eAckValue val)
         printf("Error from write: %d, %d\n", wlen, errno);
     }
     tcdrain(fd);    /* delay for output */
+    //tcflush(fd, TCIOFLUSH);
 
     /*
     // memcpy((void *) buf_to_send, &bms_frame, \
@@ -50,13 +51,17 @@ void BmsServer:: send_ack(eAckValue val)
 }
 
 
-int BmsServer:: get_data_frame(uint8_t *buf, bms_frame_struct *bms_frame)
+int BmsServer:: get_data_frame()
 {
-    memcpy((void *)&bms_status, buf + (sizeof(uint32_t) * 3), bms_frame->length);
-    bms_frame->data = (uint32_t *)&bms_status;
-
-    tcflush(fd, TCIOFLUSH);
-
+    printf("Fuel Gauge\n");
+    printf("dev_name        = 0x%x\n",bms_status.dev_name);
+	printf("vcell_voltage   = %d\n",bms_status.vcell_voltage);
+	printf("rep_cap         = %d\n",bms_status.rep_cap);
+	printf("rep_soc         = %d\n",bms_status.rep_soc);
+	printf("fule_gauge_temp = %d\n",bms_status.fule_gauge_temp);
+	printf("average_current = %d\n",bms_status.average_current);
+    printf("\n");
+    printf("Balancer\n");
     printf("bms_state       =  %d \n",bms_status.bms_state);
     printf("bat_voltage     =  %d \n",bms_status.bat_voltage);
     printf("bat_percent     =  %d \n",bms_status.bat_percent);
@@ -76,70 +81,122 @@ int BmsServer:: get_data_frame(uint8_t *buf, bms_frame_struct *bms_frame)
 }
 
 
-void BmsServer:: read_bms_frame(uint32_t *frame)
+void BmsServer:: send_bms_cmd_frame(eBalancerCommands command)
 {
-    uint8_t buf[80];
+    uint32_t buf_to_send[4];
+    int wlen = 0;
+    buf_to_send[0] = header;
+    buf_to_send[1] = e_CONTROL_FRAME;
+    buf_to_send[2] = sizeof(uint32_t);
+    buf_to_send[3] = command;
+
+    cout <<"\n"<< "Send Command To BMS" << "\n";
+
+
+    for (unsigned int i = 0 ; i < 4 ; i++)
+            printf("%x ", buf_to_send[i]);
+
+    tcflush(fd, TCIOFLUSH);
+    wlen = write(fd, buf_to_send, sizeof(buf_to_send));
+    if (wlen != sizeof(buf_to_send)) {
+        printf("Error from write: %d, %d\n", wlen, errno);
+    }
+    tcdrain(fd);    /* delay for output */
+
+
+
+}
+
+
+void BmsServer:: get_bms_frame(uint32_t *frame)
+{
+    uint8_t buf[150];
     bms_frame_struct bms_frame;
     int rdlen;
+    uint32_t bms_data_byte;
+    uint32_t data_frame_length;
+    uint32_t frame_metadata_size = sizeof(uint32_t) * 3;
 
     tcflush(fd, TCIOFLUSH);
 
-    rdlen = read(fd, buf, sizeof(bms_status_struct) + \
-                          sizeof(bms_frame_struct) - \
-                          sizeof(uint32_t));
+    data_frame_length = sizeof(bms_status_struct) + frame_metadata_size;
+
+    rdlen = read(fd, buf, data_frame_length);
+    cout<<"data_frame_length = "<< data_frame_length << "\n";
 
     cout<<"\n"<< "read income frame" << "\n";
-    for (int i = 0 ; i<rdlen ; i++)
+    for (int i = 0 ; i<rdlen ; i++) // debug
     {
         printf("%x ", buf[i]);
+        if ((i+1)%4 == 0)
+            printf("\n");
     }
     printf("\n\n");
 
-    if (rdlen > 0) {
-        memcpy(&bms_frame.header,(void *) buf, sizeof(uint32_t));
+    if (rdlen > 0)
+    {
+        memcpy(&bms_frame,(void *)buf, frame_metadata_size);
 
-        if(bms_frame.header == header)
+        /*Check the header and the length of the frame*/
+        if((bms_frame.header == header) && (bms_frame.length <=(sizeof(uint32_t) * max_frame_len)))
         {
-            memcpy(&bms_frame.type,(void *) (buf + (sizeof(uint32_t))), sizeof(uint32_t));
-            memcpy(&bms_frame.length,(void *) (buf + (sizeof(uint32_t) * 2)), sizeof(uint32_t));
+            //bms_frame.data = new uint32_t(bms_frame.length/sizeof(uint32_t));
 
-            if(bms_frame.length <=(sizeof(uint32_t) * 15 ))
-                bms_frame.data = (uint32_t *) malloc(bms_frame.length/sizeof(uint32_t));
 
+            //memcpy((void *)&bms_status, (buf + frame_metadata_size), bms_frame.length);
+            //bms_frame.data = (uint32_t*)&bms_status;
+
+            /*Read frame and send response*/
             switch (bms_frame.type)
             {
                 case e_ACK_FRAME:
                     cout<<"------>>>>>>>> Got ACK frame"<<"\n";
+                    memcpy((void *)&bms_data_byte, (buf + frame_metadata_size), sizeof(uint32_t));
+
                 break;
                 case e_DATA_FRAME:
-                    cout<<"Got data frame"<<"\n";
+                    cout<<"------>>>>>>>> Got data frame"<<"\n";
+                    memcpy((void *)&bms_status, (buf + frame_metadata_size), sizeof(bms_status_struct));
 
-                    if (get_data_frame(buf, &bms_frame) == 0 )
+                    if( get_data_frame() == 0 )
                         send_ack(e_ACK_VALUE);
                     else
                         send_ack(e_NACK_VALUE);
 
-                    tcflush(fd, TCIOFLUSH);
+                    //send_bms_cmd_frame(BmsServer:: e_STOP_BALANCING);
                 break;
                 case e_CONTROL_FRAME:
                     cout<<"------>>>>>>>> Got CONTROL frame"<<"\n";
+                    memcpy((void *)&bms_data_byte, (buf + frame_metadata_size), sizeof(uint32_t));
+                    /*Perform a command, if succssesful, send ACK*/
+                    send_ack(e_ACK_VALUE);
                 break;
                 case e_FAULT_FRAME:
-                     cout<<"------>>>>>>>> Got Fault frame"<<"\n";
+                    cout<<"------>>>>>>>> Got Fault frame"<<"\n";
+                    memcpy((void *)&bms_data_byte, (buf + frame_metadata_size), sizeof(uint32_t));
+
+                    send_ack(e_ACK_VALUE);
+
                 break;
                 default:
                 break;
+
             }
+            // if(bms_frame.data)
+            //     //free(bms_frame.data);
+            //     delete(bms_frame.data);
         }
 
-
-    } else if (rdlen < 0) {
+    }
+    else if (rdlen < 0)
+    {
         sleep(1);
         cout<< "Error from read:" << rdlen << ":" << strerror(errno)<< "\n";
-    } else {  /* rdlen == 0 */
+    }
+    else
+    {  /* rdlen == 0 */
         cout<< "Timeout from read" << "\n";
     }
-
 }
 
 int BmsServer:: set_interface_attribs(int fd, int speed)
@@ -209,7 +266,7 @@ int main(int argc, char** argv)
     while(1)
     {
 
-        bms->read_bms_frame(&num);
+       bms->get_bms_frame(&num);
 
 
 
