@@ -60,12 +60,12 @@ public:
         uint32_t bat_voltage;
         uint32_t bat_percent;
         uint32_t balancer_temp;
-        uint32_t state_of_health;
-        uint32_t state_of_charge;
+        //uint32_t state_of_health;
+        //uint32_t state_of_charge;
         uint32_t max_cell;
         uint32_t min_cell;
         uint32_t voltage_delta;
-        eBalancerFaults fault;
+        //eBalancerFaults fault;
 
     };
 
@@ -79,17 +79,19 @@ public:
         e_TURN_ON_TEGRA = 0x15
     };
 
-
-    struct bms_frame_struct{
+    struct bms_data_frame_struct{
         uint32_t header;
         eFrameType type;
         uint32_t length;
-        uint32_t* data;
+        bms_status_struct data;
     };
 
-
-
-
+    struct bms_general_frame_struct{
+	uint32_t header;
+	eFrameType type;
+	uint32_t length;
+	uint32_t data;
+    };
 
 
     void get_bms_frame(uint32_t *frame);

@@ -66,12 +66,12 @@ int BmsServer:: get_data_frame()
     printf("bat_voltage     =  %d \n",bms_status.bat_voltage);
     printf("bat_percent     =  %d \n",bms_status.bat_percent);
     printf("balancer_temp   =  %d \n",bms_status.balancer_temp);
-    printf("state_of_health =  %d \n",bms_status.state_of_health);
-    printf("state_of_charge =  %d \n",bms_status.state_of_charge);
+    //printf("state_of_health =  %d \n",bms_status.state_of_health);
+    //printf("state_of_charge =  %d \n",bms_status.state_of_charge);
     printf("max_cell        =  %d \n",bms_status.max_cell);
     printf("min_cell        =  %d \n",bms_status.min_cell);
     printf("voltage_delta   =  %d \n",bms_status.voltage_delta);
-    printf("fault           =  %d \n",bms_status.fault);
+    //printf("fault           =  %d \n",bms_status.fault);
     printf("\n");
 
     /*Check Frame fields: TBD */
@@ -111,18 +111,18 @@ void BmsServer:: send_bms_cmd_frame(eBalancerCommands command)
 void BmsServer:: get_bms_frame(uint32_t *frame)
 {
     uint8_t buf[150];
-    bms_frame_struct bms_frame;
+    bms_general_frame_struct bms_gen_frame;
+    bms_data_frame_struct bms_data_frame;
     int rdlen;
     uint32_t bms_data_byte;
-    uint32_t data_frame_length;
+    //uint32_t data_frame_length;
     uint32_t frame_metadata_size = sizeof(uint32_t) * 3;
 
-    tcflush(fd, TCIOFLUSH);
+    //tcflush(fd, TCIOFLUSH);
 
-    data_frame_length = sizeof(bms_status_struct) + frame_metadata_size;
+    rdlen = read(fd, buf, sizeof(bms_data_frame_struct));
 
-    rdlen = read(fd, buf, data_frame_length);
-    cout<<"data_frame_length = "<< data_frame_length << "\n";
+    cout<<"read frame length = "<< rdlen << "\n";
 
     cout<<"\n"<< "read income frame" << "\n";
     for (int i = 0 ; i<rdlen ; i++) // debug
@@ -135,10 +135,11 @@ void BmsServer:: get_bms_frame(uint32_t *frame)
 
     if (rdlen > 0)
     {
-        memcpy(&bms_frame,(void *)buf, frame_metadata_size);
+        memcpy(&bms_data_frame,(void *)buf, frame_metadata_size);
+        memcpy(&bms_gen_frame,(void *)buf, frame_metadata_size);
 
         /*Check the header and the length of the frame*/
-        if((bms_frame.header == header) && (bms_frame.length <=(sizeof(uint32_t) * max_frame_len)))
+        if((bms_data_frame.header == header) && (bms_data_frame.length <=(sizeof(uint32_t) * max_frame_len)))
         {
             //bms_frame.data = new uint32_t(bms_frame.length/sizeof(uint32_t));
 
@@ -147,11 +148,11 @@ void BmsServer:: get_bms_frame(uint32_t *frame)
             //bms_frame.data = (uint32_t*)&bms_status;
 
             /*Read frame and send response*/
-            switch (bms_frame.type)
+            switch (bms_data_frame.type)
             {
                 case e_ACK_FRAME:
                     cout<<"------>>>>>>>> Got ACK frame"<<"\n";
-                    memcpy((void *)&bms_data_byte, (buf + frame_metadata_size), sizeof(uint32_t));
+                    memcpy((void *)&bms_gen_frame, (buf + frame_metadata_size), sizeof(uint32_t));
 
                 break;
                 case e_DATA_FRAME:
