@@ -6,7 +6,7 @@ BIN		:= bin
 SRC		:= src
 INCLUDE	:= include
 
-EXECUTABLE	:= bms_server.out
+EXECUTABLE	:= bmsServer.out
 
 
 all: $(BIN)/$(EXECUTABLE)

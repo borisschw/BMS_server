@@ -1,7 +1,7 @@
 #include <iostream>
 #include <assert.h>
 #include <string.h>
-#include "bms_server.h"
+#include "bmsServer.h"
 
 
 using namespace std;
@@ -62,12 +62,9 @@ int BmsServer:: get_data_frame()
     printf("bat_voltage     =  %d \n",bms_status.bat_voltage);
     printf("bat_percent     =  %d \n",bms_status.bat_percent);
     printf("balancer_temp   =  %d \n",bms_status.balancer_temp);
-    //printf("state_of_health =  %d \n",bms_status.state_of_health);
-    //printf("state_of_charge =  %d \n",bms_status.state_of_charge);
     printf("max_cell        =  %d \n",bms_status.max_cell);
     printf("min_cell        =  %d \n",bms_status.min_cell);
     printf("voltage_delta   =  %d \n",bms_status.voltage_delta);
-    //printf("fault           =  %d \n",bms_status.fault);
     printf("\n");
 
     /*Check Frame fields: TBD */
