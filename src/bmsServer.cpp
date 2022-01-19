@@ -6,6 +6,34 @@
 
 using namespace std;
 
+
+uint32_t BmsServer:: get_balancer_temp()
+{
+    return bms_status.balancer_temp;
+}
+
+void BmsServer:: get_bat_cells_volts(uint32_t *cells)
+{
+    memcpy((void *)cells, (void *) balancer_cell_voltages.cells, sizeof(uint32_t) * NUMBER_OF_BAT_CELLS);
+}
+
+uint32_t BmsServer:: get_bat_total_voltage_mv()
+{
+    return bms_status.bat_voltage;
+}
+
+uint32_t BmsServer:: get_cells_delta_mv()
+{
+    return bms_status.voltage_delta;
+}
+
+uint32_t BmsServer:: get_battery_percent()
+{
+    return bms_status.bat_percent;
+}
+
+
+
 void BmsServer:: send_ack(eAckValue val)
 {
     uint32_t buf_to_send[4];
@@ -49,6 +77,7 @@ void BmsServer:: send_ack(eAckValue val)
 
 int BmsServer:: get_data_frame()
 {
+    #if VERBOSE == 1
     printf("Fuel Gauge\n");
     printf("dev_name        = 0x%x\n",bms_status.dev_name);
 	printf("vcell_voltage   = %d\n",bms_status.vcell_voltage);
@@ -66,7 +95,7 @@ int BmsServer:: get_data_frame()
     printf("min_cell        =  %d \n",bms_status.min_cell);
     printf("voltage_delta   =  %d \n",bms_status.voltage_delta);
     printf("\n");
-
+    #endif
     /*Check Frame fields: TBD */
     /*If there is something wrong return -1*/
 
@@ -82,6 +111,7 @@ void BmsServer:: print_byte(uint8_t byte)
 
 int BmsServer:: get_balancer_frame()
 {
+    #if VERBOSE == 1
     printf("Balancer cells:\n");
     printf("state = %d\n", balancer_cell_voltages.state);
 
@@ -99,9 +129,9 @@ int BmsServer:: get_balancer_frame()
 
 
     printf("\n");
+    #endif
     return 0;
 }
-
 
 void BmsServer:: send_bms_cmd_frame(eBalancerCommands command)
 {
@@ -127,7 +157,7 @@ void BmsServer:: send_bms_cmd_frame(eBalancerCommands command)
 }
 
 
-void BmsServer:: get_bms_frame(uint32_t *frame)
+void BmsServer:: read_bms_data(uint32_t *frame)
 {
     uint8_t buf[150];
     bms_general_frame_struct bms_gen_frame;
@@ -170,12 +200,16 @@ void BmsServer:: get_bms_frame(uint32_t *frame)
             switch (bms_data_frame.type)
             {
                 case e_ACK_FRAME:
+                #if VERBOSE == 1
                     cout<<"------>>>>>>>> Got ACK frame"<<"\n";
+                #endif
                     memcpy((void *)&bms_gen_frame, (buf + frame_metadata_size), sizeof(uint32_t));
 
                 break;
                 case e_BALANCER_FRAME:
-                    cout<<"------>>>>>>>> Got balancer frame"<<"\n";
+                    #if VERBOSE == 1
+                        cout<<"------>>>>>>>> Got balancer frame"<<"\n";
+                    #endif
                     memcpy((void *)&balancer_cell_voltages, (buf + frame_metadata_size), sizeof(balancer_cell_voltages));
 
                     if( get_balancer_frame() == 0 )
@@ -186,13 +220,15 @@ void BmsServer:: get_bms_frame(uint32_t *frame)
                 break;
 
                 case e_DATA_FRAME:
-                    cout<<"------>>>>>>>> Got data frame"<<"\n";
+                    #if VERBOSE == 1
+                        cout<<"------>>>>>>>> Got data frame"<<"\n";
+                    #endif
                     memcpy((void *)&bms_status, (buf + frame_metadata_size), sizeof(bms_status_struct));
 
                     if( get_data_frame() == 0 )
                         send_ack(e_ACK_VALUE);
-                    else
-                        send_ack(e_NACK_VALUE);
+                   else
+                       send_ack(e_NACK_VALUE);
 
                     //send_bms_cmd_frame(BmsServer:: e_STOP_BALANCING);
                 break;
@@ -205,7 +241,7 @@ void BmsServer:: get_bms_frame(uint32_t *frame)
                 case e_FAULT_FRAME:
                     cout<<"------>>>>>>>> Got Fault frame"<<"\n";
                     memcpy((void *)&bms_data_byte, (buf + frame_metadata_size), sizeof(uint32_t));
-                    cout << "Error number" << bms_data_byte << "\n";
+                    cout << "Error number " << bms_data_byte << "\n";
                     send_ack(e_ACK_VALUE);
 
                 break;
@@ -293,11 +329,23 @@ int main(int argc, char** argv)
     BmsServer *bms = new BmsServer;
 
     uint32_t num = 0;
+    uint32_t cells[6] = {0};
 
     while(1)
     {
 
-       bms->get_bms_frame(&num);
+        bms->read_bms_data(&num);
+
+        cout << "Balancer Temp " << bms->get_balancer_temp()<< "\n\n";
+        cout << "Battery Cell Voltages"<<"\n\n";
+        bms->get_bat_cells_volts(cells);
+        for(int i=0 ;i<6; i++)
+            cout<<cells[i]<< " ";
+        cout<<"\n";
+
+        cout<<"Total Battery Voltage "<<bms->get_bat_total_voltage_mv()<<"\n\n";
+        cout<<"Cells delta "<<bms->get_cells_delta_mv()<<"\n\n";
+        cout<<"Battery Percentage "<<bms->get_battery_percent()<<"\n\n\n\n";
     }
 
     delete bms;

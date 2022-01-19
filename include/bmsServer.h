@@ -12,6 +12,8 @@
 #include <fcntl.h>			//Used for UART
 #include <termios.h>			//Used for UART
 
+#define NUMBER_OF_BAT_CELLS 6
+#define VERBOSE 0
 
 class BmsServer {
 
@@ -20,8 +22,7 @@ public:
 
     ~BmsServer();
 
-    uint32_t get_bat_voltage();
-    uint32_t get_balancer_temp();
+
 
     enum eBalancerFaults
     {
@@ -69,7 +70,7 @@ public:
     struct balancer_cells_struct{
         uint32_t state;
         uint32_t cb_done;
-        uint32_t cells[6];
+        uint32_t cells[NUMBER_OF_BAT_CELLS];
         uint32_t max_cell;
         uint32_t min_cell;
         uint32_t total_voltage;
@@ -109,8 +110,16 @@ public:
 	uint32_t data;
     };
 
-    void get_bms_frame(uint32_t *frame);
+
+    void read_bms_data(uint32_t *frame);
     void send_bms_cmd_frame(eBalancerCommands command);
+
+    /*Public getters*/
+    uint32_t get_balancer_temp();
+    void get_bat_cells_volts(uint32_t *cells);
+    uint32_t get_bat_total_voltage_mv();
+    uint32_t get_cells_delta_mv();
+    uint32_t get_battery_percent();
 
     private:
 
@@ -121,6 +130,8 @@ public:
     void send_ack(eAckValue val);
     void send_control_frame(eAckValue val);
     void print_byte(uint8_t byte);
+
+    const uint32_t num_of_cells = 6;
 
     bms_status_struct bms_status;
     balancer_cells_struct balancer_cell_voltages;
