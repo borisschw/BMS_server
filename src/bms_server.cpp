@@ -6,10 +6,6 @@
 
 using namespace std;
 
-
-
-
-
 void BmsServer:: send_ack(eAckValue val)
 {
     uint32_t buf_to_send[4];
@@ -80,6 +76,35 @@ int BmsServer:: get_data_frame()
     return 0;
 }
 
+void BmsServer:: print_byte(uint8_t byte)
+{
+    printf("%s%s", bit_rep[byte >> 4], bit_rep[byte & 0x0F]);
+    printf("\n");
+}
+
+
+int BmsServer:: get_balancer_frame()
+{
+    printf("Balancer cells:\n");
+    printf("state = %d\n", balancer_cell_voltages.state);
+
+    print_byte(balancer_cell_voltages.cb_done );
+
+    printf("cb done = %d\n", balancer_cell_voltages.cb_done);
+    for (int i =0; i<6 ;i++)
+    {
+        printf("cell[%d] = %d\n",i, balancer_cell_voltages.cells[i]);
+    }
+    printf("max_cell        =  %d \n",balancer_cell_voltages.max_cell);
+    printf("min_cell        =  %d \n",balancer_cell_voltages.min_cell);
+    printf("voltage_delta   =  %d \n",balancer_cell_voltages.voltage_delta);
+    printf("Battery Voltage =  %d \n",balancer_cell_voltages.total_voltage);
+
+
+    printf("\n");
+    return 0;
+}
+
 
 void BmsServer:: send_bms_cmd_frame(eBalancerCommands command)
 {
@@ -102,9 +127,6 @@ void BmsServer:: send_bms_cmd_frame(eBalancerCommands command)
         printf("Error from write: %d, %d\n", wlen, errno);
     }
     tcdrain(fd);    /* delay for output */
-
-
-
 }
 
 
@@ -122,16 +144,16 @@ void BmsServer:: get_bms_frame(uint32_t *frame)
 
     rdlen = read(fd, buf, sizeof(bms_data_frame_struct));
 
-    cout<<"read frame length = "<< rdlen << "\n";
+    // cout<<"read frame length = "<< rdlen << "\n";
 
-    cout<<"\n"<< "read income frame" << "\n";
-    for (int i = 0 ; i<rdlen ; i++) // debug
-    {
-        printf("%x ", buf[i]);
-        if ((i+1)%4 == 0)
-            printf("\n");
-    }
-    printf("\n\n");
+    // cout<<"\n"<< "read income frame" << "\n";
+    // for (int i = 0 ; i<rdlen ; i++) // debug
+    // {
+    //     printf("%x ", buf[i]);
+    //     if ((i+1)%4 == 0)
+    //         printf("\n");
+    // }
+    // printf("\n\n");
 
     if (rdlen > 0)
     {
@@ -155,6 +177,17 @@ void BmsServer:: get_bms_frame(uint32_t *frame)
                     memcpy((void *)&bms_gen_frame, (buf + frame_metadata_size), sizeof(uint32_t));
 
                 break;
+                case e_BALANCER_FRAME:
+                    cout<<"------>>>>>>>> Got balancer frame"<<"\n";
+                    memcpy((void *)&balancer_cell_voltages, (buf + frame_metadata_size), sizeof(balancer_cell_voltages));
+
+                    if( get_balancer_frame() == 0 )
+                        send_ack(e_ACK_VALUE);
+                    else
+                        send_ack(e_NACK_VALUE);
+
+                break;
+
                 case e_DATA_FRAME:
                     cout<<"------>>>>>>>> Got data frame"<<"\n";
                     memcpy((void *)&bms_status, (buf + frame_metadata_size), sizeof(bms_status_struct));
@@ -175,7 +208,7 @@ void BmsServer:: get_bms_frame(uint32_t *frame)
                 case e_FAULT_FRAME:
                     cout<<"------>>>>>>>> Got Fault frame"<<"\n";
                     memcpy((void *)&bms_data_byte, (buf + frame_metadata_size), sizeof(uint32_t));
-
+                    cout << "Error number" << bms_data_byte << "\n";
                     send_ack(e_ACK_VALUE);
 
                 break;
@@ -268,9 +301,6 @@ int main(int argc, char** argv)
     {
 
        bms->get_bms_frame(&num);
-
-
-
     }
 
     delete bms;

@@ -36,6 +36,7 @@ public:
     enum eFrameType
     {
         e_ACK_FRAME = 0,
+        e_BALANCER_FRAME,
         e_DATA_FRAME,
         e_CONTROL_FRAME,
         e_FAULT_FRAME
@@ -60,14 +61,20 @@ public:
         uint32_t bat_voltage;
         uint32_t bat_percent;
         uint32_t balancer_temp;
-        //uint32_t state_of_health;
-        //uint32_t state_of_charge;
         uint32_t max_cell;
         uint32_t min_cell;
         uint32_t voltage_delta;
-        //eBalancerFaults fault;
-
     };
+
+    struct balancer_cells_struct{
+        uint32_t state;
+        uint32_t cb_done;
+        uint32_t cells[6];
+        uint32_t max_cell;
+        uint32_t min_cell;
+        uint32_t total_voltage;
+        uint32_t voltage_delta;
+    } ;
 
     enum eBalancerCommands
     {
@@ -86,13 +93,21 @@ public:
         bms_status_struct data;
     };
 
+
+    struct balancer_frame_struct{
+	uint32_t header;
+	eFrameType type;
+	uint32_t length;
+	balancer_cells_struct data;
+    } ;
+
+
     struct bms_general_frame_struct{
 	uint32_t header;
 	eFrameType type;
 	uint32_t length;
 	uint32_t data;
     };
-
 
     void get_bms_frame(uint32_t *frame);
     void send_bms_cmd_frame(eBalancerCommands command);
@@ -102,14 +117,23 @@ public:
     int fd;
     int set_interface_attribs(int fd, int speed);
     int get_data_frame();
+    int get_balancer_frame();
     void send_ack(eAckValue val);
-
     void send_control_frame(eAckValue val);
+    void print_byte(uint8_t byte);
 
     bms_status_struct bms_status;
-    const char *portname = "/dev/ttyUSB0";
+    balancer_cells_struct balancer_cell_voltages;
+    const char *portname = "/dev/ttyUSB2";
     const uint32_t header = 0xa5a5;
     const uint32_t max_frame_len = 50;
+
+    const char *bit_rep[16] = {
+    [ 0] = "0000", [ 1] = "0001", [ 2] = "0010", [ 3] = "0011",
+    [ 4] = "0100", [ 5] = "0101", [ 6] = "0110", [ 7] = "0111",
+    [ 8] = "1000", [ 9] = "1001", [10] = "1010", [11] = "1011",
+    [12] = "1100", [13] = "1101", [14] = "1110", [15] = "1111",
+    };
 
 };
 
