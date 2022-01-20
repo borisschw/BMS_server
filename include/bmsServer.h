@@ -12,8 +12,12 @@
 #include <fcntl.h>			//Used for UART
 #include <termios.h>			//Used for UART
 
+
 #define NUMBER_OF_BAT_CELLS 6
-#define VERBOSE 0
+#define VERBOSE
+
+
+
 
 class BmsServer {
 
@@ -21,8 +25,6 @@ public:
     BmsServer();
 
     ~BmsServer();
-
-
 
     enum eBalancerFaults
     {
@@ -111,7 +113,7 @@ public:
     };
 
 
-    void read_bms_data(uint32_t *frame);
+    void *read_bms_data();
     void send_bms_cmd_frame(eBalancerCommands command);
 
     /*Public getters*/
@@ -145,7 +147,6 @@ public:
     [ 8] = "1000", [ 9] = "1001", [10] = "1010", [11] = "1011",
     [12] = "1100", [13] = "1101", [14] = "1110", [15] = "1111",
     };
-
 };
 
 #endif //BMS_SERVER_H

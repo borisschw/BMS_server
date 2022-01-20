@@ -1,6 +1,6 @@
 # CC		:= /opt/gcc-linaro-7.3.1-2018.05-x86_64_aarch64-linux-gnu/bin/aarch64-linux-gnu-gcc
 CC := g++
-C_FLAGS :=  -Wall -Wextra -Wno-unused-parameter -lpthread
+C_FLAGS := -pthread -Wall -Wextra -Wno-unused-parameter -lpthread
 
 BIN		:= bin
 SRC		:= src

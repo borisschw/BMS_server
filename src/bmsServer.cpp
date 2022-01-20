@@ -50,11 +50,14 @@ void BmsServer:: send_ack(eAckValue val)
     buf_to_send[2] = sizeof(uint32_t);
     buf_to_send[3] = ack_value;
 
-    cout <<"\n"<< "Send ACK To BMS" << "\n";
+    #ifdef VERBOSE
+        cout <<"\n"<< "Send ACK To BMS" << "\n";
+    #endif
 
-
+    #ifdef VERBOSE
     for (unsigned int i = 0 ; i < 4 ; i++)
             printf("%x ", buf_to_send[i]);
+    #endif
 
     tcflush(fd, TCIOFLUSH);
     wlen = write(fd, buf_to_send, sizeof(buf_to_send));
@@ -77,7 +80,7 @@ void BmsServer:: send_ack(eAckValue val)
 
 int BmsServer:: get_data_frame()
 {
-    #if VERBOSE == 1
+    #ifdef VERBOSE
     printf("Fuel Gauge\n");
     printf("dev_name        = 0x%x\n",bms_status.dev_name);
 	printf("vcell_voltage   = %d\n",bms_status.vcell_voltage);
@@ -111,24 +114,23 @@ void BmsServer:: print_byte(uint8_t byte)
 
 int BmsServer:: get_balancer_frame()
 {
-    #if VERBOSE == 1
-    printf("Balancer cells:\n");
-    printf("state = %d\n", balancer_cell_voltages.state);
+    #ifdef VERBOSE
+        printf("Balancer cells:\n");
+        printf("state = %d\n", balancer_cell_voltages.state);
 
-    print_byte(balancer_cell_voltages.cb_done );
+        print_byte(balancer_cell_voltages.cb_done );
 
-    printf("cb done = %d\n", balancer_cell_voltages.cb_done);
-    for (int i =0; i<6 ;i++)
-    {
-        printf("cell[%d] = %d\n",i, balancer_cell_voltages.cells[i]);
-    }
-    printf("max_cell        =  %d \n",balancer_cell_voltages.max_cell);
-    printf("min_cell        =  %d \n",balancer_cell_voltages.min_cell);
-    printf("voltage_delta   =  %d \n",balancer_cell_voltages.voltage_delta);
-    printf("Battery Voltage =  %d \n",balancer_cell_voltages.total_voltage);
+        printf("cb done = %d\n", balancer_cell_voltages.cb_done);
+        for (int i =0; i<6 ;i++)
+        {
+            printf("cell[%d] = %d\n",i, balancer_cell_voltages.cells[i]);
+        }
+        printf("max_cell        =  %d \n",balancer_cell_voltages.max_cell);
+        printf("min_cell        =  %d \n",balancer_cell_voltages.min_cell);
+        printf("voltage_delta   =  %d \n",balancer_cell_voltages.voltage_delta);
+        printf("Battery Voltage =  %d \n",balancer_cell_voltages.total_voltage);
 
-
-    printf("\n");
+        printf("\n");
     #endif
     return 0;
 }
@@ -144,7 +146,6 @@ void BmsServer:: send_bms_cmd_frame(eBalancerCommands command)
 
     cout <<"\n"<< "Send Command To BMS" << "\n";
 
-
     for (unsigned int i = 0 ; i < 4 ; i++)
             printf("%x ", buf_to_send[i]);
 
@@ -157,8 +158,9 @@ void BmsServer:: send_bms_cmd_frame(eBalancerCommands command)
 }
 
 
-void BmsServer:: read_bms_data(uint32_t *frame)
+void* BmsServer:: read_bms_data()
 {
+
     uint8_t buf[150];
     bms_general_frame_struct bms_gen_frame;
     bms_data_frame_struct bms_data_frame;
@@ -169,100 +171,104 @@ void BmsServer:: read_bms_data(uint32_t *frame)
 
     //tcflush(fd, TCIOFLUSH);
 
-    rdlen = read(fd, buf, sizeof(bms_data_frame_struct));
-
-    // cout<<"read frame length = "<< rdlen << "\n";
-
-    // cout<<"\n"<< "read income frame" << "\n";
-    // for (int i = 0 ; i<rdlen ; i++) // debug
-    // {
-    //     printf("%x ", buf[i]);
-    //     if ((i+1)%4 == 0)
-    //         printf("\n");
-    // }
-    // printf("\n\n");
-
-    if (rdlen > 0)
+    while(1)
     {
-        memcpy(&bms_data_frame,(void *)buf, frame_metadata_size);
-        memcpy(&bms_gen_frame,(void *)buf, frame_metadata_size);
+        rdlen = read(fd, buf, sizeof(bms_data_frame_struct));
+        // cout<<"read frame length = "<< rdlen << "\n";
 
-        /*Check the header and the length of the frame*/
-        if((bms_data_frame.header == header) && (bms_data_frame.length <=(sizeof(uint32_t) * max_frame_len)))
+        // cout<<"\n"<< "read income frame" << "\n";
+        // for (int i = 0 ; i<rdlen ; i++) // debug
+        // {
+        //     printf("%x ", buf[i]);
+        //     if ((i+1)%4 == 0)
+        //         printf("\n");
+        // }
+        // printf("\n\n");
+
+        if (rdlen > 0)
         {
-            //bms_frame.data = new uint32_t(bms_frame.length/sizeof(uint32_t));
+            memcpy(&bms_data_frame,(void *)buf, frame_metadata_size);
+            memcpy(&bms_gen_frame,(void *)buf, frame_metadata_size);
 
-
-            //memcpy((void *)&bms_status, (buf + frame_metadata_size), bms_frame.length);
-            //bms_frame.data = (uint32_t*)&bms_status;
-
-            /*Read frame and send response*/
-            switch (bms_data_frame.type)
+            /*Check the header and the length of the frame*/
+            if((bms_data_frame.header == header) && (bms_data_frame.length <=(sizeof(uint32_t) * max_frame_len)))
             {
-                case e_ACK_FRAME:
-                #if VERBOSE == 1
-                    cout<<"------>>>>>>>> Got ACK frame"<<"\n";
-                #endif
-                    memcpy((void *)&bms_gen_frame, (buf + frame_metadata_size), sizeof(uint32_t));
+                //bms_frame.data = new uint32_t(bms_frame.length/sizeof(uint32_t));
+                //memcpy((void *)&bms_status, (buf + frame_metadata_size), bms_frame.length);
+                //bms_frame.data = (uint32_t*)&bms_status;
 
-                break;
-                case e_BALANCER_FRAME:
-                    #if VERBOSE == 1
-                        cout<<"------>>>>>>>> Got balancer frame"<<"\n";
+                /*Read frame and send response*/
+                switch (bms_data_frame.type)
+                {
+                    case e_ACK_FRAME:
+                    #ifdef VERBOSE
+                        cout<<"------>>>>>>>> Got ACK frame"<<"\n";
                     #endif
-                    memcpy((void *)&balancer_cell_voltages, (buf + frame_metadata_size), sizeof(balancer_cell_voltages));
+                        memcpy((void *)&bms_gen_frame, (buf + frame_metadata_size), sizeof(uint32_t));
 
-                    if( get_balancer_frame() == 0 )
-                        send_ack(e_ACK_VALUE);
+                    break;
+                    case e_BALANCER_FRAME:
+                        #ifdef VERBOSE
+                            cout<<"------>>>>>>>> Got balancer frame"<<"\n";
+                        #endif
+                        memcpy((void *)&balancer_cell_voltages, (buf + frame_metadata_size), sizeof(balancer_cell_voltages));
+
+                        if( get_balancer_frame() == 0 )
+                            send_ack(e_ACK_VALUE);
+                        else
+                            send_ack(e_NACK_VALUE);
+
+                    break;
+
+                    case e_DATA_FRAME:
+                        #ifdef VERBOSE
+                            cout<<"------>>>>>>>> Got data frame"<<"\n";
+                        #endif
+                        memcpy((void *)&bms_status, (buf + frame_metadata_size), sizeof(bms_status_struct));
+
+                        if( get_data_frame() == 0 )
+                            send_ack(e_ACK_VALUE);
                     else
                         send_ack(e_NACK_VALUE);
 
-                break;
-
-                case e_DATA_FRAME:
-                    #if VERBOSE == 1
-                        cout<<"------>>>>>>>> Got data frame"<<"\n";
-                    #endif
-                    memcpy((void *)&bms_status, (buf + frame_metadata_size), sizeof(bms_status_struct));
-
-                    if( get_data_frame() == 0 )
+                        //send_bms_cmd_frame(BmsServer:: e_STOP_BALANCING);
+                    break;
+                    case e_CONTROL_FRAME:
+                        #ifdef VERBOSE
+                            cout<<"------>>>>>>>> Got CONTROL frame"<<"\n";
+                        #endif
+                        memcpy((void *)&bms_data_byte, (buf + frame_metadata_size), sizeof(uint32_t));
+                        /*Perform a command, if succssesful, send ACK*/
                         send_ack(e_ACK_VALUE);
-                   else
-                       send_ack(e_NACK_VALUE);
+                    break;
+                    case e_FAULT_FRAME:
+                        #ifdef VERBOSE
+                            cout<<"------>>>>>>>> Got Fault frame"<<"\n";
+                        #endif
+                        memcpy((void *)&bms_data_byte, (buf + frame_metadata_size), sizeof(uint32_t));
+                        cout << "Error number " << bms_data_byte << "\n";
+                        send_ack(e_ACK_VALUE);
 
-                    //send_bms_cmd_frame(BmsServer:: e_STOP_BALANCING);
-                break;
-                case e_CONTROL_FRAME:
-                    cout<<"------>>>>>>>> Got CONTROL frame"<<"\n";
-                    memcpy((void *)&bms_data_byte, (buf + frame_metadata_size), sizeof(uint32_t));
-                    /*Perform a command, if succssesful, send ACK*/
-                    send_ack(e_ACK_VALUE);
-                break;
-                case e_FAULT_FRAME:
-                    cout<<"------>>>>>>>> Got Fault frame"<<"\n";
-                    memcpy((void *)&bms_data_byte, (buf + frame_metadata_size), sizeof(uint32_t));
-                    cout << "Error number " << bms_data_byte << "\n";
-                    send_ack(e_ACK_VALUE);
+                    break;
+                    default:
+                    break;
 
-                break;
-                default:
-                break;
-
+                }
+                // if(bms_frame.data)
+                //     //free(bms_frame.data);
+                //     delete(bms_frame.data);
             }
-            // if(bms_frame.data)
-            //     //free(bms_frame.data);
-            //     delete(bms_frame.data);
-        }
 
-    }
-    else if (rdlen < 0)
-    {
-        sleep(1);
-        cout<< "Error from read:" << rdlen << ":" << strerror(errno)<< "\n";
-    }
-    else
-    {  /* rdlen == 0 */
-        cout<< "Timeout from read" << "\n";
+        }
+        else if (rdlen < 0)
+        {
+            sleep(1);
+            cout<< "Error from read:" << rdlen << ":" << strerror(errno)<< "\n";
+        }
+        else
+        {  /* rdlen == 0 */
+            cout<< "Timeout from read" << "\n";
+        }
     }
 }
 
@@ -306,10 +312,9 @@ int BmsServer:: set_interface_attribs(int fd, int speed)
 BmsServer::BmsServer()
 {
     /*Open and define serial interface*/
-    cout<<"BmsServer() \n";
     fd = open(portname, O_RDWR | O_NOCTTY | O_SYNC);
     if (fd < 0) {
-        cout<<"Error opening: " << portname << strerror(errno) << "\n";
+        cout<<"Error opening: serial port" << "\n";
         return;
     }
 
@@ -323,32 +328,35 @@ BmsServer::~BmsServer()
 }
 
 
-int main(int argc, char** argv)
-{
+// int main(int argc, char** argv)
+// {
 
-    BmsServer *bms = new BmsServer;
+//     BmsServer *bms = new BmsServer;
 
-    uint32_t num = 0;
-    uint32_t cells[6] = {0};
 
-    while(1)
-    {
+//     uint32_t cells[6] = {0};
 
-        bms->read_bms_data(&num);
+//     while(1)
+//     {
 
-        cout << "Balancer Temp " << bms->get_balancer_temp()<< "\n\n";
-        cout << "Battery Cell Voltages"<<"\n\n";
-        bms->get_bat_cells_volts(cells);
-        for(int i=0 ;i<6; i++)
-            cout<<cells[i]<< " ";
-        cout<<"\n";
+//         for(int i =0 ; i< 6; i++)
+//             cells[i] = 0;
 
-        cout<<"Total Battery Voltage "<<bms->get_bat_total_voltage_mv()<<"\n\n";
-        cout<<"Cells delta "<<bms->get_cells_delta_mv()<<"\n\n";
-        cout<<"Battery Percentage "<<bms->get_battery_percent()<<"\n\n\n\n";
-    }
+//         bms->read_bms_data();
 
-    delete bms;
-    return 0;
-}
+//         cout << "Balancer Temp " << bms->get_balancer_temp()<< "\n\n";
+//         cout << "Battery Cell Voltages"<<"\n\n";
+//         bms->get_bat_cells_volts(cells);
+//         for(int i=0 ;i<6; i++)
+//             cout<<cells[i]<< " ";
+//         cout<<"\n";
+
+//         cout<<"Total Battery Voltage "<<bms->get_bat_total_voltage_mv()<<"\n\n";
+//         cout<<"Cells delta "<<bms->get_cells_delta_mv()<<"\n\n";
+//         cout<<"Battery Percentage "<<bms->get_battery_percent()<<"\n\n\n\n";
+//     }
+
+//     delete bms;
+//     return 0;
+// }
 
